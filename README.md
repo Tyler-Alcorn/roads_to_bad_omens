@@ -1,16 +1,45 @@
 # Music Session Transition Graph
 
-An interactive force-directed graph visualization of music listening transitions, mapping how artists and channels flow into one another based on watch history.
+An interactive force-directed graph visualization of music listening transitions, mapping how artists and channels flow into one another based on your watched history. 
 
-## 🚀 Features
-- **Interactive Force-Directed Graph**: Nodes (artists) and edges (transitions) are rendered using a dynamic physics simulation.
-- **Weighted Edge Thickness**: The thickness of each connection represents the frequency of that transition.
-- **Embedded Data**: The filtered transition data is embedded directly into the HTML file, allowing it to work offline.
+## ✨ Features
+- **Interactive Force-Directed Graph**: Nodes (artists) and edges (transitions) are rendered dynamically with physics constraints.
+- **Web Interface**: A blazingly fast `Go` backend that parses history directly in your browser.
+- **Customizable Filtration**: Filter out non-music videos, collapse generic "- Topic" channels, and adjust connection thresholds and session gaps.
+- **Local offline processing**: Everything runs locally. No data leaves your machine.
 
-## 🛠️ Usage
-1. Open `music_graph.html` in your web browser.
-2. **Zoom/Pan**: Use your mouse wheel and click-drag.
-3. **Pin Nodes**: Drag a node to fix its position for custom layout inspection.
+## 🚀 Getting Your Data (Google Takeout)
+To generate your own personal music flow graph, you'll need your viewing history from Google.
+1. Visit [Google Takeout](https://takeout.google.com/).
+2. Click **"Deselect All"** at the top.
+3. Scroll down and check the box for **"YouTube and YouTube Music"**.
+4. Click **"All YouTube data included"** and deselect everything except **"history"**. 
+5. Under **"Multiple formats"**, ensure the History format is set to `HTML`.
+6. Click **Next step** and then **Create export**.
+7. Once downloaded, extract the `.zip` file. You'll use the `Takeout/YouTube and YouTube Music/history/watch-history.html` file in the web interface!
 
-## ⚙️ Data Preparation
-The data is processed using `prepare_graph_data.py`, which takes raw transitioning data (`music_session_transitions.json`), filters out low-frequency and self-looping transitions, and embeds the sanitized data (`graph_data.json`) directly into the HTML file.
+## 🛠️ Usage (Web App)
+The easiest way to explore your data is through the native Go application:
+1. Ensure you have [Go](https://go.dev/) installed.
+2. Navigate to the `go` directory in terminal:
+```bash
+cd go
+go run main.go
+```
+3. Open your browser to `http://localhost:8080`.
+4. Upload the `watch-history.html` file you extracted in the previous steps and click **Generate Graph**!
+
+### Python Processing (CLI)
+Alternatively, if you prefer to use the command line without the web GUI, you can process your data and generate a graph entirely in Python.
+
+1. Navigate into the `python/` directory:
+```bash
+cd python
+```
+2. Open `analyze_music_sessions.py` and adjust the `# Configuration Options` at the top of the file to your liking (e.g., `VIDEO_TYPE`, `MIN_CONNECTIONS`, `COLLAPSE_TOPIC`).
+3. Run the analysis script:
+```bash
+python3 analyze_music_sessions.py
+```
+This single command will parse your history, filter it, bundle the transition data into JSON, and automatically embed it directly into the `music_graph.html` UI file. 
+4. Simply open `python/music_graph.html` in your web browser to view your generated graph!

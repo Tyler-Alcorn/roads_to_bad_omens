@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Session Transition Graph</title>
+    <script src="https://unpkg.com/force-graph"></script>
+    <style>
+        body { margin: 0; background-color: #0b0b0b; color: #e0e0e0; font-family: 'Inter', system-ui, -apple-system, sans-serif; overflow: hidden; }
+        #graph { width: 100vw; height: 100vh; }
+        .controls {
+            position: absolute; top: 20px; left: 20px; z-index: 10;
+            background: rgba(20, 20, 20, 0.8); padding: 20px; border-radius: 12px;
+            backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5); width: 280px; max-height: 90vh; overflow-y: auto;
+        }
+        h1 { margin: 0 0 10px 0; font-size: 1.2rem; background: linear-gradient(90deg, #ff7e5f, #feb47b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        p { font-size: 0.85rem; opacity: 0.8; margin: 5px 0 15px 0; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-size: 0.85rem; margin-bottom: 5px; color: #bbb; }
+        input[type="file"], input[type="number"] {
+            width: 100%; box-sizing: border-box; background: rgba(0,0,0,0.5); border: 1px solid #333;
+            color: #fff; padding: 8px; border-radius: 6px; font-size: 0.85rem; margin-bottom: 5px;
+        }
+        input[type="checkbox"] { margin-right: 8px; }
+        .checkbox-label { display: flex; align-items: center; cursor: pointer; }
+        button {
+            width: 100%; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer;
+            border: none; background: linear-gradient(90deg, #ff7e5f, #feb47b); color: #fff;
+            transition: transform 0.2s, opacity 0.2s; font-size: 0.9rem; margin-top: 10px;
+        }
+        button:hover { opacity: 0.9; transform: translateY(-1px); }
+        button:active { transform: translateY(1px); }
+        button:disabled { background: #555; cursor: not-allowed; color: #888; transform: none; }
+        .legend { margin-top: 20px; font-size: 0.8rem; border-top: 1px solid #333; padding-top: 15px; }
+        .loading { display: none; margin-top: 15px; font-size: 0.85rem; color: #feb47b; text-align: center; }
+        .error { color: #ff6b6b; font-size: 0.8rem; margin-top: 10px; display: none; }
+
+        /* Segmented Control Styles */
+        .segmented-control {
+            display: flex;
+            background-color: #1a1a1a;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid #333;
+        }
+        .segmented-control input[type="radio"] {
+            display: none;
+        }
+        .segmented-control label {
+            flex: 1;
+            text-align: center;
+            padding: 8px 12px;
+            font-size: 0.85rem;
+            color: #888;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-bottom: 0;
+            border-right: 1px solid #333;
+        }
+        .segmented-control label:last-child {
+            border-right: none;
+        }
+        .segmented-control input[type="radio"]:checked + label {
+            background-color: #444;
+            color: #fff;
+            font-weight: 500;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="controls">
+        <h1>Music Flow Graph</h1>
+        <p>Upload your Takeout watch-history.html</p>
+        <p style="font-size: 0.75rem; color: #4ade80; margin-top: -10px; margin-bottom: 15px;">
+            🔒 100% Local & Private. Files are processed in-memory and never saved.
+        </p>
+        
+        <form id="uploadForm">
+            <div class="form-group">
+                <label for="historyFile">History File</label>
+                <input type="file" id="historyFile" name="historyFile" accept=".html,.json" required>
+            </div>
+            
+            <div class="form-group checkbox-label">
+                <input type="checkbox" id="collapseTopic" name="collapseTopic" checked>
+                <label for="collapseTopic" style="margin-bottom:0;">Collapse '- Topic' Channels</label>
+            </div>
+
+            <div class="form-group">
+                <label style="margin-bottom: 8px; display: block;">Video Type</label>
+                <div class="segmented-control">
+                    <input type="radio" id="vt-both" name="videoType" value="all" checked>
+                    <label for="vt-both">Both</label>
+                    
+                    <input type="radio" id="vt-yt" name="videoType" value="yt">
+                    <label for="vt-yt">YouTube</label>
+                    
+                    <input type="radio" id="vt-ytmusic" name="videoType" value="ytmusic">
+                    <label for="vt-ytmusic">YT Music</label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="minConnections">Min Connections Threshold</label>
+                <input type="number" id="minConnections" name="minConnections" value="3" min="1">
+            </div>
+
+            <div class="form-group">
+                <label for="sessionGap">Session Gap (Minutes)</label>
+                <input type="number" id="sessionGap" name="sessionGap" value="30" min="1">
+                <p style="font-size: 0.75rem; color: #888; margin-top: 2px;">If you stop listening for this long, the next song starts a new session rather than showing a transition.</p>
+            </div>
+
+            <button type="submit" id="submitBtn">Generate Graph</button>
+            <div class="loading" id="loadingMsg">Processing... this may take up to a minute depending on file size.</div>
+            <div class="error" id="errorMsg"></div>
+        </form>
+
+        <div id="stats" class="legend">Waiting for data...</div>
+    </div>
+    
+    <div id="graph"></div>
+
+    <script>
+        let graphInstance = null;
+
+        function initGraph() {
+            if (!graphInstance) {
+                graphInstance = ForceGraph()(document.getElementById('graph'))
+                    .nodeLabel('id')
+                    .nodeAutoColorBy('id')
+                    .linkWidth(link => Math.sqrt(link.value) * 1.5)
+                    .linkDirectionalArrowLength(6)
+                    .linkDirectionalArrowRelPos(1)
+                    .linkCurvature(0.2)
+                    .linkColor(() => 'rgba(255, 255, 255, 0.2)')
+                    .onNodeDragEnd(node => {
+                        node.fx = node.x;
+                        node.fy = node.y;
+                    })
+                    .onNodeClick(node => {
+                        graphInstance.centerAt(node.x, node.y, 1000);
+                        graphInstance.zoom(2, 1000);
+                    });
+
+                graphInstance.nodeCanvasObject((node, ctx, globalScale) => {
+                    const label = node.id;
+                    const fontSize = 12 / globalScale;
+                    ctx.font = `${fontSize}px Sans-Serif`;
+
+                    ctx.fillStyle = 'rgba(0, 0, 0, 1)';
+                    ctx.beginPath();
+                    ctx.arc(node.x, node.y, 4, 0, 2 * Math.PI, false);
+                    ctx.fill();
+
+                    ctx.fillStyle = node.color;
+                    ctx.beginPath();
+                    ctx.arc(node.x, node.y, 3, 0, 2 * Math.PI, false);
+                    ctx.fill();
+
+                    if (globalScale > 2) {
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillStyle = '#fff';
+                        ctx.fillText(label, node.x, node.y + 8);
+                    }
+                });
+            }
+        }
+
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const btn = document.getElementById('submitBtn');
+            const loadingMsg = document.getElementById('loadingMsg');
+            const errorMsg = document.getElementById('errorMsg');
+            
+            btn.disabled = true;
+            loadingMsg.style.display = 'block';
+            errorMsg.style.display = 'none';
+
+            const historyFile = document.getElementById('historyFile').files[0];
+            const collapseTopic = document.getElementById('collapseTopic').checked;
+            const videoType = document.querySelector('input[name="videoType"]:checked').value;
+            const minConnections = document.getElementById('minConnections').value;
+            const sessionGap = document.getElementById('sessionGap').value;
+
+            const formData = new FormData();
+            formData.append('historyFile', historyFile);
+            formData.append('collapseTopic', collapseTopic);
+            formData.append('videoType', videoType);
+            formData.append('minConnections', minConnections);
+            formData.append('sessionGap', sessionGap);
+
+            try {
+                const response = await fetch('/api/generate', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(await response.text() || 'Failed to generate graph');
+                }
+
+                const data = await response.json();
+                
+                initGraph();
+                graphInstance.graphData(data);
+
+                document.getElementById('stats').innerHTML = `
+                    <b>Nodes:</b> ${data.nodes.length}<br>
+                    <b>Transitions:</b> ${data.links.length}<br>
+                    <small>Edge thickness = frequency</small>
+                `;
+            } catch (error) {
+                console.error('Error:', error);
+                errorMsg.textContent = error.message;
+                errorMsg.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                loadingMsg.style.display = 'none';
+            }
+        });
+
+        // Initialize empty graph
+        initGraph();
+    </script>
+</body>
+
+</html>

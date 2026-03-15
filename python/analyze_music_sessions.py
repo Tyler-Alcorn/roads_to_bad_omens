@@ -6,13 +6,17 @@ import json
 import os
 
 # Paths
-BASE_DIR = "/Volumes/Dock/roads_to_bad_omens"
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MUSIC_LIBRARY_PATH = os.path.join(BASE_DIR, "Takeout/YouTube and YouTube Music/music (library and uploads)/music library songs.csv")
 WATCH_HISTORY_PATH = os.path.join(BASE_DIR, "Takeout/YouTube and YouTube Music/history/watch-history.html")
-OUTPUT_REPORT_PATH = os.path.join(BASE_DIR, "music_session_report.txt")
-OUTPUT_JSON_PATH = os.path.join(BASE_DIR, "music_session_transitions.json")
+OUTPUT_REPORT_PATH = os.path.join(BASE_DIR, "python", "music_session_report.txt")
+OUTPUT_JSON_PATH = os.path.join(BASE_DIR, "python", "music_session_transitions.json")
 
+# Configuration Options
 SESSION_GAP_MINUTES = 30
+MIN_CONNECTIONS = 3
+COLLAPSE_TOPIC = True
+VIDEO_TYPE = "all" # "all", "yt", or "ytmusic"
 
 def parse_timestamp(ts_str):
     # Remove the narrow non-breaking space (U+202F) if present
@@ -82,6 +86,14 @@ def main():
                 break
         
         if video_id and timestamp:
+            header_text = "".join(cell.xpath('.//div[contains(@class, "header-cell")]//text()'))
+            is_ytmusic = "YouTube Music" in header_text
+
+            if VIDEO_TYPE == "ytmusic" and not is_ytmusic:
+                continue
+            if VIDEO_TYPE == "yt" and is_ytmusic:
+                continue
+
             events.append({
                 'video_id': video_id,
                 'title': title,
@@ -114,7 +126,13 @@ def main():
     path_counts = {}
 
     for session in sessions:
-        path = [item['artist'] for item in session]
+        path = []
+        for item in session:
+            artist = item['artist']
+            if COLLAPSE_TOPIC:
+                artist = artist.replace(" - Topic", "").strip()
+            path.append(artist)
+            
         # Remove consecutive duplicates to see flow between distinct artists
         collapsed_path = []
         if path:
@@ -127,12 +145,20 @@ def main():
         path_counts[path_str] = path_counts.get(path_str, 0) + 1
         
         for i in range(len(collapsed_path) - 1):
-            pair = (collapsed_path[i], collapsed_path[i+1])
+            src, dst = collapsed_path[i], collapsed_path[i+1]
+            if src == "Unknown Channel" or dst == "Unknown Channel":
+                continue
+            pair = (src, dst)
             transitions[pair] = transitions.get(pair, 0) + 1
 
-    # Sorting results
+    # Filter by minimum connections
+    filtered_transitions = {
+        k: v for k, v in transitions.items() if v >= MIN_CONNECTIONS
+    }
+
+    # Sorting results (using filtered transitions for edges)
     top_paths = sorted(path_counts.items(), key=lambda x: x[1], reverse=True)[:20]
-    top_transitions = sorted(transitions.items(), key=lambda x: x[1], reverse=True)[:50]
+    top_transitions = sorted(filtered_transitions.items(), key=lambda x: x[1], reverse=True)[:50]
 
     # Write report
     with open(OUTPUT_REPORT_PATH, 'w', encoding='utf-8') as f:
@@ -154,13 +180,21 @@ def main():
 
     # Save transitions to JSON for further use
     serializable_transitions = [
-        {"from": k[0], "to": k[1], "count": v} for k, v in transitions.items()
+        {"from": k[0], "to": k[1], "count": v} for k, v in filtered_transitions.items()
     ]
     with open(OUTPUT_JSON_PATH, 'w', encoding='utf-8') as f:
         json.dump(serializable_transitions, f, indent=4)
 
     print(f"Report generated: {OUTPUT_REPORT_PATH}")
     print(f"JSON mapping saved: {OUTPUT_JSON_PATH}")
+
+    # Auto-generate the HTML graph visualization
+    try:
+        import prepare_graph_data
+        print("\n--- Generating HTML Graph ---")
+        prepare_graph_data.main()
+    except Exception as e:
+        print(f"Error generating graph HTML: {e}")
 
 if __name__ == "__main__":
     main()

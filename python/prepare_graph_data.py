@@ -1,9 +1,9 @@
 import json
 import os
 
-BASE_DIR = "/Volumes/Dock/roads_to_bad_omens"
-INPUT_JSON = os.path.join(BASE_DIR, "music_session_transitions.json")
-OUTPUT_JSON = os.path.join(BASE_DIR, "graph_data.json")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+INPUT_JSON = os.path.join(BASE_DIR, "python", "music_session_transitions.json")
+OUTPUT_JSON = os.path.join(BASE_DIR, "python", "graph_data.json")
 
 # Performance thresholds
 MIN_COUNT = 3  # Only keep transitions that occurred at least 3 times
@@ -58,9 +58,8 @@ def main():
     print(f"Graph data saved to {OUTPUT_JSON}")
     print(f"Total nodes: {len(nodes)}, Total links: {len(links)}")
 
-    # Update HTML file
     import re
-    html_file = os.path.join(BASE_DIR, "music_graph.html")
+    html_file = os.path.join(BASE_DIR, "python", "music_graph.html")
     if os.path.exists(html_file):
         with open(html_file, 'r', encoding='utf-8') as f:
             content = f.read()

@@ -2,13 +2,21 @@
 
 An interactive force-directed graph visualization of music listening transitions, mapping how artists and channels flow into one another based on your watched history. 
 
-## ✨ Features
+
+## Why did I make this? 
+Have you ever been talking with a friend and said, "does it feel like your Youtube Music always ends up at Bad Omens?" Do all roads lead to Bad Omens? The following is a simple graph that looks at your youtube and/or youtube music history and with a few assumptions(time between start times) maps the transitions between the songs. The thought being to see the central nodes of your own youtube history. 
+
+## Future Goals
+
+I plan to try a some more graph analytics to better see, do all roads lead to bad omens (or your own bad omens artist) or are you just a bit crazy?! 
+
+##  Features
 - **Interactive Force-Directed Graph**: Nodes (artists) and edges (transitions) are rendered dynamically with physics constraints.
 - **Web Interface**: A blazingly fast `Go` backend that parses history directly in your browser.
 - **Customizable Filtration**: Filter out non-music videos, collapse generic "- Topic" channels, and adjust connection thresholds and session gaps.
 - **Local offline processing**: Everything runs locally. No data leaves your machine.
 
-## 🚀 Getting Your Data (Google Takeout)
+## Getting Your Data (Google Takeout)
 To generate your own personal music flow graph, you'll need your viewing history from Google.
 1. Visit [Google Takeout](https://takeout.google.com/).
 2. Click **"Deselect All"** at the top.
@@ -18,7 +26,7 @@ To generate your own personal music flow graph, you'll need your viewing history
 6. Click **Next step** and then **Create export**.
 7. Once downloaded, extract the `.zip` file. You'll use the `Takeout/YouTube and YouTube Music/history/watch-history.html` file in the web interface!
 
-## 🛠️ Usage (Web App)
+## Usage (Web App)
 The easiest way to explore your data is through the native Go application:
 1. Ensure you have [Go](https://go.dev/) installed.
 2. Navigate to the `go` directory in terminal:
